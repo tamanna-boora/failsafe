@@ -1,11 +1,4 @@
-"""
-app.py — FAILSAFE Streamlit Dashboard
-Predicts student failure risk using XGBoost + SHAP explanations,
-and surfaces personalised intervention recommendations.
-
-Run from project root:
-    streamlit run app/app.py
-"""
+"""FAILSAFE Streamlit dashboard. Run with: streamlit run app/app.py"""
 
 import os
 import sys
@@ -15,22 +8,19 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")          # non-interactive backend for Streamlit
+matplotlib.use("Agg")   # non-interactive backend required by Streamlit
 import matplotlib.pyplot as plt
 import shap
 import joblib
 import streamlit as st
 
-# ── Import interventions from src/ ──────────────────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 from interventions import generate_interventions
 
-# ── Paths ────────────────────────────────────────────────────────────────────
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 DATA_PATH  = os.path.join(PROJECT_ROOT, "data", "students.csv")
 
-# ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="FAILSAFE — Student Risk Predictor",
     page_icon="🎓",
@@ -38,7 +28,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .risk-high   { background:#ffe0e0; border-left:4px solid #d32f2f; padding:8px 12px; border-radius:4px; }
@@ -49,9 +38,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Helper: load model artifacts (cached so they load once per session)
-# ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner="Loading model …")
 def load_artifacts():
     model_path    = os.path.join(MODELS_DIR, "xgb_model.joblib")
@@ -70,45 +56,33 @@ def load_artifacts():
     return model, encoders, feature_names, metrics
 
 
+# SHAP is slow on large batches — cache_resource keeps the explainer warm between reruns
 @st.cache_resource(show_spinner="Building SHAP explainer …")
 def get_explainer(_model):
     return shap.TreeExplainer(_model)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Helper: preprocess uploaded / sample data
-# ══════════════════════════════════════════════════════════════════════════════
 def preprocess(df: pd.DataFrame, encoders: dict, feature_names: list) -> pd.DataFrame:
-    """
-    Apply saved label encoders to categorical columns and return only
-    the columns the model was trained on, in the correct order.
-    Unknown categories are mapped to 0 (safe fallback for tree models).
-    """
+    """Encode categoricals and align columns to training order. Unknown categories → 0."""
     df = df.copy()
 
-    # Drop columns the model doesn't need
     for col in ["G3", "at_risk"]:
         if col in df.columns:
             df.drop(columns=[col], inplace=True)
 
-    # Encode categoricals using saved encoders
     for col, le in encoders.items():
         if col in df.columns:
             df[col] = df[col].astype(str).apply(
                 lambda x: le.transform([x])[0] if x in le.classes_ else 0
             )
 
-    # Reindex to match training feature order, fill any missing cols with 0
+    # reindex to match training feature order exactly
     df = df.reindex(columns=feature_names, fill_value=0)
     return df
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Helper: SHAP waterfall plot for one student
-# ══════════════════════════════════════════════════════════════════════════════
 def shap_waterfall(explainer, X_row: pd.DataFrame, max_display: int = 10):
-    """Return a matplotlib Figure with the SHAP waterfall for one student."""
-    explanation = explainer(X_row)  # Explanation object for 1 row
+    explanation = explainer(X_row)
     fig, ax = plt.subplots(figsize=(8, 4))
     plt.sca(ax)
     shap.plots.waterfall(explanation[0], max_display=max_display, show=False)
@@ -116,22 +90,15 @@ def shap_waterfall(explainer, X_row: pd.DataFrame, max_display: int = 10):
     return fig
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Helper: get top positive-SHAP features for a student (driving at-risk = 1)
-# ══════════════════════════════════════════════════════════════════════════════
 def get_top_risk_features(explainer, X_row: pd.DataFrame, n: int = 10) -> list[str]:
-    """Return feature names sorted by SHAP value (descending), positive first."""
-    explanation = explainer(X_row)
-    shap_vals   = explanation[0].values          # 1-D array
+    explanation   = explainer(X_row)
+    shap_vals     = explanation[0].values
     feature_names = list(X_row.columns)
-    # Sort by raw SHAP value (positive = increases at-risk prediction)
-    sorted_idx  = np.argsort(shap_vals)[::-1]
+    # sort by raw SHAP value — positive values push the prediction toward at-risk=1
+    sorted_idx = np.argsort(shap_vals)[::-1]
     return [feature_names[i] for i in sorted_idx[:n]]
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Risk level labels
-# ══════════════════════════════════════════════════════════════════════════════
 def risk_label(prob: float) -> str:
     if prob >= 0.60:
         return "High"
@@ -139,15 +106,12 @@ def risk_label(prob: float) -> str:
         return "Medium"
     return "Low"
 
+
 RISK_COLOR = {"High": "#d32f2f", "Medium": "#f9a825", "Low": "#388e3c"}
 RISK_CSS   = {"High": "risk-high",  "Medium": "risk-medium",  "Low": "risk-low"}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MAIN APP
-# ══════════════════════════════════════════════════════════════════════════════
 def main():
-    # ── Sidebar ──────────────────────────────────────────────────────────────
     with st.sidebar:
         st.title("🎓 FAILSAFE")
         st.caption("Student Failure Risk Predictor")
@@ -171,7 +135,6 @@ def main():
         st.divider()
         st.caption("IIT Guwahati Coding Club · Even Semester 2026")
 
-    # ── Header ────────────────────────────────────────────────────────────────
     st.title("🎓 FAILSAFE — Student Failure Risk Prediction")
     st.markdown(
         "An **Explainable AI** dashboard that identifies at-risk students "
@@ -179,7 +142,6 @@ def main():
         "Powered by **XGBoost** + **SHAP**."
     )
 
-    # ── Model not trained yet ─────────────────────────────────────────────────
     if model is None:
         st.error(
             "Model artifacts not found in `models/`. "
@@ -193,7 +155,6 @@ def main():
 
     explainer = get_explainer(model)
 
-    # ── Data Input ────────────────────────────────────────────────────────────
     st.header("1. Load Student Data")
     data_source = st.radio(
         "Data source",
@@ -208,8 +169,7 @@ def main():
             st.error("Sample data not found. Run `python download_data.py` first.")
             return
         full_df = pd.read_csv(DATA_PATH)
-        # Use last 30 rows as demo (unseen-looking sample)
-        df_raw = full_df.tail(30).reset_index(drop=True)
+        df_raw = full_df.tail(30).reset_index(drop=True)  # last 30 rows look "unseen"
         st.success(f"Loaded {len(df_raw)} students from the built-in dataset.")
 
     else:
@@ -230,15 +190,14 @@ def main():
             )
             return
 
-    # ── Preview raw data ─────────────────────────────────────────────────────
     with st.expander("Preview raw data", expanded=False):
         st.dataframe(df_raw, use_container_width=True)
 
-    # ── Run Predictions ───────────────────────────────────────────────────────
     st.header("2. Predictions")
 
     X_processed = preprocess(df_raw, encoders, feature_names)
     probas      = model.predict_proba(X_processed)[:, 1]
+    # 0.5 works fine here; could lower to ~0.35 to catch borderline students at the cost of more false alarms
     predictions = (probas >= 0.5).astype(int)
 
     results_df = df_raw.copy()
@@ -246,12 +205,10 @@ def main():
     results_df["Risk Level"]     = [risk_label(p) for p in probas]
     results_df["Predicted"]      = ["At-Risk" if p == 1 else "Safe" for p in predictions]
 
-    # ── Summary KPIs ─────────────────────────────────────────────────────────
-    n_total    = len(results_df)
-    n_at_risk  = int(predictions.sum())
-    n_high     = (results_df["Risk Level"] == "High").sum()
-    n_medium   = (results_df["Risk Level"] == "Medium").sum()
-    n_low      = (results_df["Risk Level"] == "Low").sum()
+    n_total   = len(results_df)
+    n_at_risk = int(predictions.sum())
+    n_high    = (results_df["Risk Level"] == "High").sum()
+    n_medium  = (results_df["Risk Level"] == "Medium").sum()
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Students", n_total)
@@ -259,7 +216,6 @@ def main():
     col3.metric("High Risk", n_high)
     col4.metric("Medium Risk", n_medium)
 
-    # ── Filter ────────────────────────────────────────────────────────────────
     st.subheader("Filter by Risk Level")
     risk_filter = st.multiselect(
         "Show students with risk level:",
@@ -268,10 +224,9 @@ def main():
     )
     filtered_df = results_df[results_df["Risk Level"].isin(risk_filter)]
 
-    # ── Results table ─────────────────────────────────────────────────────────
     display_cols = ["Risk Score (%)", "Risk Level", "Predicted", "absences", "studytime",
                     "failures", "G1", "G2"]
-    available    = [c for c in display_cols if c in filtered_df.columns]
+    available = [c for c in display_cols if c in filtered_df.columns]
     st.dataframe(
         filtered_df[available].reset_index(drop=True),
         use_container_width=True,
@@ -283,7 +238,6 @@ def main():
         },
     )
 
-    # ── Visualisations ─────────────────────────────────────────────────────────
     st.header("3. Summary Visualisations")
     viz_col1, viz_col2 = st.columns(2)
 
@@ -292,7 +246,7 @@ def main():
         risk_counts = results_df["Risk Level"].value_counts().reindex(["High", "Medium", "Low"], fill_value=0)
         fig_pie, ax_pie = plt.subplots(figsize=(4, 4))
         colors = [RISK_COLOR["High"], RISK_COLOR["Medium"], RISK_COLOR["Low"]]
-        wedges, texts, autotexts = ax_pie.pie(
+        ax_pie.pie(
             risk_counts,
             labels=risk_counts.index,
             autopct="%1.1f%%",
@@ -305,7 +259,6 @@ def main():
 
     with viz_col2:
         st.subheader("Top Global Risk Factors (Feature Importance)")
-        # Use XGBoost's built-in feature importance
         importance = model.feature_importances_
         imp_series = pd.Series(importance, index=feature_names).sort_values(ascending=False).head(10)
         fig_bar, ax_bar = plt.subplots(figsize=(5, 4))
@@ -316,7 +269,6 @@ def main():
         st.pyplot(fig_bar)
         plt.close(fig_bar)
 
-    # ── At-Risk Student Deep Dive ─────────────────────────────────────────────
     at_risk_mask = results_df["Risk Level"].isin(["High", "Medium"]) & results_df["Risk Level"].isin(risk_filter)
     at_risk_rows = results_df[at_risk_mask]
 
@@ -330,8 +282,7 @@ def main():
         "and personalised **intervention recommendations**."
     )
 
-    # Limit deep-dive to avoid overwhelming the page
-    MAX_DEEP_DIVE = 20
+    MAX_DEEP_DIVE = 20  # SHAP per-student calls add up — cap to keep the page responsive
     if len(at_risk_rows) > MAX_DEEP_DIVE:
         st.warning(f"Showing deep-dive for the top {MAX_DEEP_DIVE} highest-risk students.")
         at_risk_rows = at_risk_rows.nlargest(MAX_DEEP_DIVE, "Risk Score (%)")
@@ -343,7 +294,7 @@ def main():
 
         with st.expander(
             f"Student #{orig_idx + 1}  ·  Risk: {score:.1f}%  ·  Level: {level}",
-            expanded=(idx == 0),  # auto-open the first card
+            expanded=(idx == 0),  # auto-open the first card only
         ):
             st.markdown(f'<div class="{css}"><b>{level} Risk Student</b> — predicted risk score: {score:.1f}%</div>',
                         unsafe_allow_html=True)
@@ -370,8 +321,8 @@ def main():
             with tab_actions:
                 st.markdown("**Recommended Interventions**")
                 try:
-                    X_one_row = X_processed.iloc[[orig_idx]]
-                    top_feats = get_top_risk_features(explainer, X_one_row, n=10)
+                    X_one_row    = X_processed.iloc[[orig_idx]]
+                    top_feats    = get_top_risk_features(explainer, X_one_row, n=10)
                     student_vals = X_processed.iloc[orig_idx].to_dict()
                     interventions = generate_interventions(student_vals, top_feats)
 
@@ -382,13 +333,12 @@ def main():
 
             with tab_profile:
                 st.markdown("**Student Feature Values**")
-                # Show original (un-encoded) values where available
-                profile_data = {}
-                for feat in feature_names:
-                    if feat in df_raw.columns:
-                        profile_data[feat] = df_raw.iloc[orig_idx][feat]
-                profile_series = pd.Series(profile_data)
-                st.dataframe(profile_series.to_frame("Value"), use_container_width=True)
+                profile_data = {
+                    feat: df_raw.iloc[orig_idx][feat]
+                    for feat in feature_names
+                    if feat in df_raw.columns
+                }
+                st.dataframe(pd.Series(profile_data).to_frame("Value"), use_container_width=True)
 
 
 if __name__ == "__main__":
