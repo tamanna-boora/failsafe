@@ -1,18 +1,12 @@
-"""
-interventions.py
-Rule-based intervention recommender. Given a student's feature values and the
-features most responsible for their at-risk prediction (from SHAP), it returns
-3-5 personalised action recommendations.
-"""
+"""Rule-based intervention recommender, keyed on SHAP top features."""
 
 from __future__ import annotations
-from typing import Union
+from typing import Callable, Union
 import pandas as pd
 
 
-# Mapping each dataset feature → (condition_fn, recommendation_text)
-# condition_fn(value) returns True when the feature is contributing to risk.
-INTERVENTION_RULES: list[tuple[str, object, str]] = [
+# Each rule: (feature_name, condition_fn, recommendation_text)
+INTERVENTION_RULES: list[tuple[str, Callable[[float], bool], str]] = [
     (
         "absences",
         lambda v: v > 10,
@@ -39,7 +33,7 @@ INTERVENTION_RULES: list[tuple[str, object, str]] = [
     ),
     (
         "famsup",
-        # encoded: 'no' → 0, 'yes' → 1  (LabelEncoder sorts alphabetically: no=0, yes=1)
+        # LabelEncoder sorts alphabetically, so no=0, yes=1
         lambda v: v == 0,
         "No family educational support — arrange a parent/guardian meeting to "
         "discuss the student's progress and strategies to support study at home.",
@@ -106,21 +100,21 @@ INTERVENTION_RULES: list[tuple[str, object, str]] = [
     ),
     (
         "internet",
-        # encoded: 'no' → 0, 'yes' → 1
+        # LabelEncoder sorts alphabetically, so no=0, yes=1
         lambda v: v == 0,
         "No home internet access — connect the student with campus digital "
         "resources (library WiFi, loaner devices) to support self-study.",
     ),
     (
         "schoolsup",
-        # encoded: 'no' → 0, 'yes' → 1
+        # LabelEncoder sorts alphabetically, so no=0, yes=1
         lambda v: v == 0,
         "Not enrolled in extra school support — recommend signing up for "
         "after-school tutoring or peer study groups.",
     ),
     (
         "paid",
-        # encoded: 'no' → 0, 'yes' → 1
+        # LabelEncoder sorts alphabetically, so no=0, yes=1
         lambda v: v == 0,
         "Not taking paid extra classes — if affordable, explore supplementary "
         "paid coaching in the student's weakest subjects.",
@@ -133,7 +127,7 @@ INTERVENTION_RULES: list[tuple[str, object, str]] = [
     ),
 ]
 
-# Fallback recommendations when rule-based ones are insufficient
+# used when rule matches don't reach the minimum of 3
 _FALLBACKS = [
     "Schedule a general academic support session with the student's personal tutor.",
     "Provide the student with a curated list of online learning resources for their subjects.",
@@ -148,28 +142,14 @@ def generate_interventions(
     top_features: list[str],
     max_interventions: int = 5,
 ) -> list[str]:
-    """
-    Generate personalised intervention recommendations.
-
-    Parameters
-    ----------
-    student_row   : dict or pd.Series — the student's (encoded) feature values.
-    top_features  : list of feature names ranked by SHAP importance (highest first).
-                    Typically the features with the largest positive SHAP values,
-                    i.e. those most responsible for the at-risk prediction.
-    max_interventions : int — maximum number of recommendations to return (3-5).
-
-    Returns
-    -------
-    list[str] — between 3 and max_interventions intervention strings.
-    """
+    """Return 3–5 personalised intervention strings for one at-risk student."""
     if isinstance(student_row, pd.Series):
         student_row = student_row.to_dict()
 
     seen: set[str] = set()   # de-duplicate by recommendation text
     results: list[str] = []
 
-    # Priority pass: check rules for top-ranked features first
+    # check SHAP top features first so the most impactful interventions lead
     priority_features = set(top_features[:10])
     for feat, condition, recommendation in INTERVENTION_RULES:
         if feat not in priority_features:
@@ -186,7 +166,6 @@ def generate_interventions(
         if len(results) >= max_interventions:
             break
 
-    # Secondary pass: check remaining rules if we still need more
     if len(results) < 3:
         for feat, condition, recommendation in INTERVENTION_RULES:
             if feat in priority_features:
@@ -203,7 +182,6 @@ def generate_interventions(
             if len(results) >= max_interventions:
                 break
 
-    # Pad with fallbacks if we still don't have the minimum
     for fallback in _FALLBACKS:
         if len(results) >= 3:
             break
