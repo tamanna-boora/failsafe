@@ -191,7 +191,7 @@ def main():
             return
 
     with st.expander("Preview raw data", expanded=False):
-        st.dataframe(df_raw, use_container_width=True)
+        st.dataframe(df_raw, width='stretch')
 
     st.header("2. Predictions")
 
@@ -229,7 +229,7 @@ def main():
     available = [c for c in display_cols if c in filtered_df.columns]
     st.dataframe(
         filtered_df[available].reset_index(drop=True),
-        use_container_width=True,
+        width='stretch',
         column_config={
             "Risk Score (%)": st.column_config.ProgressColumn(
                 "Risk Score (%)", min_value=0, max_value=100, format="%.1f%%"
@@ -268,6 +268,8 @@ def main():
         plt.tight_layout()
         st.pyplot(fig_bar)
         plt.close(fig_bar)
+
+    st.divider()
 
     at_risk_mask = results_df["Risk Level"].isin(["High", "Medium"]) & results_df["Risk Level"].isin(risk_filter)
     at_risk_rows = results_df[at_risk_mask]
@@ -338,7 +340,9 @@ def main():
                     for feat in feature_names
                     if feat in df_raw.columns
                 }
-                st.dataframe(pd.Series(profile_data).to_frame("Value"), use_container_width=True)
+                profile_df = pd.Series(profile_data).to_frame("Value")
+                profile_df["Value"] = profile_df["Value"].astype(str)
+                st.dataframe(profile_df, width='stretch')
 
 
 if __name__ == "__main__":
