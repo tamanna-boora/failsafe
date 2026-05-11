@@ -19,4 +19,4 @@ data/raw/
 Thumbs.db
 
 # Streamlit
-.streamlit/
+.streamlit/.claude/
