@@ -2,23 +2,30 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 venv/
 .venv/
 env/
+*.egg-info/
+.pytest_cache/
 
-# Data & models (too big for git)
-data/raw/
-*.pkl
+# Claude Code
+.claude/
+.claude*
 
-# IDE
+# IDE & editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS
+# OS junk
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Streamlit
 .streamlit/secrets.toml
-.streamlit/.claude/
-.claude/
+
+# Logs
+*.log
