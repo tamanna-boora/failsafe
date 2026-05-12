@@ -112,6 +112,12 @@ RISK_CSS   = {"High": "risk-high",  "Medium": "risk-medium",  "Low": "risk-low"}
 
 
 def main():
+    theme_base  = st.get_option("theme.base") or "light"
+    is_dark     = theme_base == "dark"
+    text_color  = "#FAFAFA" if is_dark else "#1A1A1A"
+    spine_color = "#888888" if is_dark else "#CCCCCC"
+    wedge_edge  = "#1A1F2E" if is_dark else "#F0F2F6"
+
     with st.sidebar:
         st.title("🎓 FAILSAFE")
         st.caption("Student Failure Risk Predictor")
@@ -133,7 +139,7 @@ def main():
         st.markdown("🟡 **Medium** — 30% – 59%")
         st.markdown("🟢 **Low** — score < 30%")
         st.divider()
-        st.caption("IIT Guwahati Coding Club · Even Semester 2026")
+        st.caption("Built by Tamanna Boora · IITG · 2026")
 
     st.title("🎓 FAILSAFE — Student Failure Risk Prediction")
     st.markdown(
@@ -245,15 +251,22 @@ def main():
         st.subheader("Risk Distribution")
         risk_counts = results_df["Risk Level"].value_counts().reindex(["High", "Medium", "Low"], fill_value=0)
         fig_pie, ax_pie = plt.subplots(figsize=(4, 4))
+        fig_pie.patch.set_alpha(0.0)
+        ax_pie.set_facecolor("none")
         colors = [RISK_COLOR["High"], RISK_COLOR["Medium"], RISK_COLOR["Low"]]
-        ax_pie.pie(
+        _, texts, autotexts = ax_pie.pie(
             risk_counts,
             labels=risk_counts.index,
             autopct="%1.1f%%",
             colors=colors,
             startangle=90,
+            textprops={"color": text_color},
+            wedgeprops={"edgecolor": wedge_edge, "linewidth": 1},
         )
-        ax_pie.set_title("Student Risk Distribution")
+        for at in autotexts:
+            at.set_color(text_color)
+            at.set_fontsize(9)
+        ax_pie.set_title("Student Risk Distribution", color=text_color, pad=12)
         st.pyplot(fig_pie)
         plt.close(fig_pie)
 
@@ -262,9 +275,16 @@ def main():
         importance = model.feature_importances_
         imp_series = pd.Series(importance, index=feature_names).sort_values(ascending=False).head(10)
         fig_bar, ax_bar = plt.subplots(figsize=(5, 4))
-        imp_series[::-1].plot(kind="barh", ax=ax_bar, color="#1976d2")
-        ax_bar.set_title("Top 10 Feature Importances")
-        ax_bar.set_xlabel("Importance Score")
+        fig_bar.patch.set_alpha(0.0)
+        ax_bar.set_facecolor("none")
+        imp_series[::-1].plot(kind="barh", ax=ax_bar, color="#FF6B6B")
+        ax_bar.set_title("Top 10 Feature Importances", color=text_color)
+        ax_bar.set_xlabel("Importance Score", color=text_color)
+        ax_bar.tick_params(axis="both", colors=spine_color, labelcolor=text_color)
+        for spine in ax_bar.spines.values():
+            spine.set_color(spine_color)
+        ax_bar.spines["top"].set_visible(False)
+        ax_bar.spines["right"].set_visible(False)
         plt.tight_layout()
         st.pyplot(fig_bar)
         plt.close(fig_bar)
