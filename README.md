@@ -6,9 +6,7 @@ Predicts which students are likely to fail a semester — and tells you why, so 
 
 ## the problem
 
-So here's the thing — by the time end-sem results show who failed, it's already too late to actually help anyone. Most colleges have no early warning system. A student could be struggling for months and nobody notices until grades drop.
-
-I wanted to fix that. Or at least take a shot at it.
+So here's the thing — by the time end-sem results show who failed, it's already too late to actually help anyone. Most colleges have no early warning system. A student could be struggling for months and nobody notices until grades drop.I wanted to fix that. Or at least take a shot at it.
 
 FAILSAFE looks at things like attendance, study time, family background, past grades — basically all the stuff that quietly predicts trouble — and flags students who are heading toward failure. Then it explains why (using SHAP) and suggests what faculty could actually do about it.
 
@@ -25,13 +23,13 @@ FAILSAFE looks at things like attendance, study time, family background, past gr
 
 ## screenshots
 
-![Dashboard overview](screenshots01-dashboard.png)
+![Dashboard overview](screenshots/screenshot01-dashboard.png)
 
-![Predictions overview](screenshots02-predictions.png)
+![Predictions overview](screenshots/screenshot02-predictions.png)
 
-![SHAP waterfall](screenshots03-shap.png)
+![SHAP waterfall](screenshots/screenshot03-shap.png)
 
-![Interventions tab](screenshots04-interventions.png)
+![Interventions tab](screenshots/screenshot04-interventions.png)
 
 
 ---
@@ -76,6 +74,8 @@ Opens at `localhost:8501`.
 ---
 
 ## folders
+
+```bash
 failsafe/
 ├── app/app.py              # the streamlit dashboard
 ├── src/train_model.py      # ML pipeline
@@ -85,7 +85,7 @@ failsafe/
 ├── LEARNING.md             # what I learned (reflection)
 ├── NOTES.md                # dev notes from while I was building
 └── README.md
-
+```
 ---
 
 ## decisions I made
@@ -125,4 +125,4 @@ No setup needed — just click the link and try it.
 
 **Report PDF**: https://drive.google.com/file/d/12w7dXDYUOfL1d0mDOD6FK651x_cgq76O/view?usp=drive_link
 
- FAILSAFE — IIT Guwahati — Coding Club Even Semester Project’26
+**FAILSAFE — IIT Guwahati — Coding Club Even Semester Project’26**
