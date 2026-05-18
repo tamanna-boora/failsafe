@@ -2,8 +2,6 @@
 
 Predicts which students are likely to fail a semester — and tells you why, so faculty can step in before the final results come out.
 
-Built for IIT Guwahati Coding Club's even semester project (April 2026).
-
 ---
 
 ## the problem
@@ -114,3 +112,17 @@ failsafe/
 - Real IITG data: CGPA, mess attendance, club activity
 - Auto-email intervention plans to faculty
 ---
+
+## try it live
+
+🔗 **[https://failsafe-tamanna.streamlit.app](https://failsafe-tamanna.streamlit.app)**
+
+No setup needed — just click the link and try it.
+
+---
+
+**Demo Video**: https://drive.google.com/file/d/1S4ioHhg6pd91vFkBb3bTU6UB8PkF7GKi/view?usp=sharing
+
+**Report PDF**: https://drive.google.com/file/d/12w7dXDYUOfL1d0mDOD6FK651x_cgq76O/view?usp=drive_link
+
+ FAILSAFE — IIT Guwahati — Coding Club Even Semester Project’26
