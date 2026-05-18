@@ -21,4 +21,4 @@ Thumbs.db
 # Streamlit
 .streamlit/secrets.toml
 .streamlit/.claude/
-.claude/
+
